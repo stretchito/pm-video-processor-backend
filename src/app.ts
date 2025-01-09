@@ -16,7 +16,7 @@ app.use(express.json());
 // Routes
 app.use('/api/videos', videoRoutes);
 
-// Error handling
+// Error handling middleware must be used last
 app.use(errorHandler);
 
 app.listen(port, () => {
