@@ -7,11 +7,16 @@ import { errorHandler } from './middleware/errorHandler';
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoint for Render
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // Routes
 app.use('/api/videos', videoRoutes);
@@ -21,6 +26,7 @@ app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  console.log(`Environment PORT value: ${process.env.PORT}`);
 });
 
 export default app;
