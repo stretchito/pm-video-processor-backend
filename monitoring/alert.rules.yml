@@ -1,0 +1,38 @@
+groups:
+  - name: video_processor_alerts
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 1.5e9  # 1.5GB
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage detected
+          description: Server memory usage is above 1.5GB for more than 5 minutes
+
+      - alert: HighProcessingTime
+        expr: video_processing_duration_seconds > 300  # 5 minutes
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Long video processing time
+          description: Video processing is taking longer than 5 minutes
+
+      - alert: HighErrorRate
+        expr: rate(video_processing_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High error rate in video processing
+          description: More than 10% of video processing attempts are failing
+
+      - alert: StorageNearCapacity
+        expr: disk_free_bytes / disk_total_bytes < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Storage space running low
+          description: Less than 10% storage space remaining
