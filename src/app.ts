@@ -2,9 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import videoRoutes from './routes/videoRoutes';
+import metricsRoutes from './routes/metricsRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import { initializeMetrics } from './utils/metrics';
 
 dotenv.config();
+
+// Initialize metrics
+initializeMetrics();
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -15,11 +20,16 @@ app.use(express.json());
 
 // Health check endpoint for Render
 app.get('/', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ 
+    status: 'ok',
+    service: 'video-processor-api',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Routes
 app.use('/api/videos', videoRoutes);
+app.use('/metrics', metricsRoutes);
 
 // Error handling middleware must be used last
 app.use(errorHandler);
