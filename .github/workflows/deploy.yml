@@ -36,25 +36,32 @@ jobs:
 
       - name: Configure SSH
         run: |
-          mkdir -p ~/.ssh/
+          mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          ssh-keygen -l -f ~/.ssh/deploy_key || exit 1
+          ssh-keygen -l -f ~/.ssh/known_hosts || exit 1
+
+      - name: Test SSH Connection
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ secrets.DROPLET_IP }} 'echo "SSH Connection Successful"'
 
       - name: Deploy to DigitalOcean
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
 
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ secrets.DROPLET_IP }} << 'EOSSH'
+            set -e
             cd /var/www/video-processor
             npm ci --production
-            pm2 reload ecosystem.config.js --update-env
+            pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
             sudo systemctl reload nginx
           EOSSH
 
