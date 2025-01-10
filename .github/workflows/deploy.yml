@@ -56,7 +56,7 @@ jobs:
             npm ci --production
             pm2 reload ecosystem.config.js --update-env
             sudo systemctl reload nginx
-EOF
+          EOF
 
       - name: Verify Deployment
         run: |
