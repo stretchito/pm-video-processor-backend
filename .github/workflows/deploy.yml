@@ -50,13 +50,13 @@ jobs:
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
-          
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOF'
+
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
             cd /var/www/video-processor
             npm ci --production
             pm2 reload ecosystem.config.js --update-env
             sudo systemctl reload nginx
-          EOF
+          EOSSH
 
       - name: Verify Deployment
         run: |
