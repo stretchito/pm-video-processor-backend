@@ -39,29 +39,48 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          cat ~/.ssh/deploy_key
+          
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+          
+          # Debug SSH key and known_hosts
+          echo "Verifying SSH key:"
           ssh-keygen -l -f ~/.ssh/deploy_key || exit 1
+          echo "Verifying known_hosts:"
           ssh-keygen -l -f ~/.ssh/known_hosts || exit 1
+          
+          # Add to SSH config
+          echo "Host *" > ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Test SSH Connection
-        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ secrets.DROPLET_IP }} 'echo "SSH Connection Successful"'
+        run: |
+          echo "Testing SSH connection..."
+          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} 'echo "SSH Connection Successful"'
 
       - name: Deploy to DigitalOcean
         run: |
+          echo "Starting rsync..."
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "ssh -v -i ~/.ssh/deploy_key" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
 
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no root@${{ secrets.DROPLET_IP }} << 'EOSSH'
-            set -e
-            cd /var/www/video-processor
+          echo "Starting SSH commands..."
+          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
+            set -ex
+            cd /var/www/video-processor || exit 1
+            echo "Installing dependencies..."
             npm ci --production
+            echo "Starting/reloading PM2..."
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+            echo "Reloading nginx..."
             sudo systemctl reload nginx
           EOSSH
 
