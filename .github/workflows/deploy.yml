@@ -34,36 +34,74 @@ jobs:
       - name: Build Application
         run: npm run build
 
+      - name: Debug Environment
+        run: |
+          echo "GitHub Runner OS: ${{ runner.os }}"
+          echo "GitHub Runner Architecture: ${{ runner.arch }}"
+          echo "Droplet IP exists: ${{ secrets.DROPLET_IP != '' }}"
+          echo "Deploy key length: ${#DEPLOY_KEY}"
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+
       - name: Configure SSH
         run: |
+          # Create .ssh directory with correct permissions
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Write deploy key with correct permissions
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          cat ~/.ssh/deploy_key
           
+          # Debug key content (first line only, for security)
+          echo "Deploy key first line:"
+          head -n 1 ~/.ssh/deploy_key
+          
+          # Write known_hosts
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
           
-          # Debug SSH key and known_hosts
-          echo "Verifying SSH key:"
-          ssh-keygen -l -f ~/.ssh/deploy_key || exit 1
-          echo "Verifying known_hosts:"
-          ssh-keygen -l -f ~/.ssh/known_hosts || exit 1
-          
-          # Add to SSH config
-          echo "Host *" > ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-          echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+          # Create SSH config
+          cat > ~/.ssh/config << EOF
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+            LogLevel DEBUG3
+          EOF
           chmod 600 ~/.ssh/config
+          
+          # Verify SSH files
+          ls -la ~/.ssh/
+          
+          # Debug SSH key format
+          echo "SSH key format:"
+          ssh-keygen -l -f ~/.ssh/deploy_key || echo "Invalid key format"
 
-      - name: Test SSH Connection
+      - name: Test Basic SSH Connection
         run: |
-          echo "Testing SSH connection..."
-          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} 'echo "SSH Connection Successful"'
+          echo "Testing basic SSH connectivity..."
+          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} 'echo "Connection test"' || {
+            echo "SSH connection failed"
+            exit 1
+          }
+
+      - name: Verify Target Directory
+        run: |
+          echo "Verifying target directory..."
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} '
+            if [ ! -d "/var/www/video-processor" ]; then
+              echo "Creating /var/www/video-processor"
+              mkdir -p /var/www/video-processor
+              chown -R root:root /var/www/video-processor
+              chmod -R 755 /var/www/video-processor
+            fi
+          '
 
       - name: Deploy to DigitalOcean
         run: |
-          echo "Starting rsync..."
+          echo "Starting deployment..."
+          
+          echo "Running rsync..."
           rsync -avz --delete \
             -e "ssh -v -i ~/.ssh/deploy_key" \
             --exclude='.git*' \
@@ -72,16 +110,38 @@ jobs:
             dist/ package*.json ecosystem.config.js \
             root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
 
-          echo "Starting SSH commands..."
+          echo "Executing remote commands..."
           ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
             set -ex
-            cd /var/www/video-processor || exit 1
+            cd /var/www/video-processor || {
+              echo "Failed to change directory"
+              exit 1
+            }
+            
             echo "Installing dependencies..."
-            npm ci --production
+            npm ci --production || {
+              echo "Failed to install dependencies"
+              exit 1
+            }
+            
             echo "Starting/reloading PM2..."
-            pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+            if pm2 list | grep -q "video-processor"; then
+              pm2 reload ecosystem.config.js --update-env || {
+                echo "Failed to reload PM2"
+                exit 1
+              }
+            else
+              pm2 start ecosystem.config.js || {
+                echo "Failed to start PM2"
+                exit 1
+              }
+            fi
+            
             echo "Reloading nginx..."
-            sudo systemctl reload nginx
+            sudo systemctl reload nginx || {
+              echo "Failed to reload nginx"
+              exit 1
+            }
           EOSSH
 
       - name: Verify Deployment
