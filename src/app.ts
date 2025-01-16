@@ -23,7 +23,9 @@ app.get('/', (req, res) => {
   res.status(200).json({ 
     status: 'ok',
     service: 'video-processor-api',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: '1.0.1', // Added version number for testing deployment
+    environment: process.env.NODE_ENV
   });
 });
 
