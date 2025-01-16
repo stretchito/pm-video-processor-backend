@@ -1,5 +1,6 @@
 name: Deploy to DigitalOcean
 
+# Deployment triggered at 2024-03-19
 on:
   push:
     branches: [ main ]
@@ -42,23 +43,24 @@ jobs:
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
           
-          # Create SSH config with explicit settings
-          cat > ~/.ssh/config << EOF
-          Host *
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking yes
-            UserKnownHostsFile ~/.ssh/known_hosts
-            LogLevel DEBUG3
-          EOF
+          # Create SSH config file
+          echo "Host *" > ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking yes" >> ~/.ssh/config
+          echo "  UserKnownHostsFile ~/.ssh/known_hosts" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
           
-          # Debug: List SSH directory contents and permissions
+          # Debug: Show SSH files and permissions
           ls -la ~/.ssh/
+          cat ~/.ssh/config
+          
+          # Test SSH connection with verbose output
+          ssh -vvv nodejs@${{ secrets.DROPLET_IP }} 'echo "SSH test"'
 
       - name: Deploy to DigitalOcean
         run: |
-          # Test SSH connection first
-          ssh -v -i ~/.ssh/deploy_key nodejs@${{ secrets.DROPLET_IP }} 'echo "SSH connection successful"'
+          # Create directory if it doesn't exist
+          ssh -i ~/.ssh/deploy_key nodejs@${{ secrets.DROPLET_IP }} 'mkdir -p /var/www/video-processor'
           
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
