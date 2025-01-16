@@ -35,20 +35,34 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Setup SSH
+      - name: Debug SSH Setup
         run: |
           mkdir -p ~/.ssh
+          echo "Setting up SSH directory..."
+          ls -la ~/.ssh || true
+          
+          echo "Writing deploy key..."
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          ls -la ~/.ssh/deploy_key
+          
+          echo "Writing known hosts..."
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+          ls -la ~/.ssh/known_hosts
           
-          # Create SSH config file with explicit settings
+          echo "Creating SSH config..."
           echo "Host *" > ~/.ssh/config
           echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
           echo "  StrictHostKeyChecking yes" >> ~/.ssh/config
           echo "  UserKnownHostsFile ~/.ssh/known_hosts" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
+          
+          echo "Final SSH directory contents:"
+          ls -la ~/.ssh/
+
+      - name: Test SSH Connection
+        run: ssh -v -i ~/.ssh/deploy_key nodejs@${{ secrets.DROPLET_IP }} 'echo "SSH connection successful"'
 
       - name: Deploy to DigitalOcean
         run: |
