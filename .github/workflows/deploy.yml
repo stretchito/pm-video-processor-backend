@@ -39,20 +39,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
 
       - name: Deploy to DigitalOcean
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             nodejs@161.35.137.136:/var/www/video-processor/
 
-          ssh -i ~/.ssh/deploy_key nodejs@161.35.137.136 << 'EOSSH'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
             cd /var/www/video-processor
             npm ci --production
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
