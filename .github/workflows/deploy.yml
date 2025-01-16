@@ -58,7 +58,7 @@ jobs:
       - name: Deploy to DigitalOcean
         run: |
           # Test SSH connection first
-          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} 'echo "SSH connection successful"'
+          ssh -v -i ~/.ssh/deploy_key nodejs@${{ secrets.DROPLET_IP }} 'echo "SSH connection successful"'
           
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
@@ -66,9 +66,9 @@ jobs:
             --exclude='node_modules' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
-            root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
+            nodejs@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
 
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
+          ssh -i ~/.ssh/deploy_key nodejs@${{ secrets.DROPLET_IP }} << 'EOSSH'
             cd /var/www/video-processor
             npm ci --production
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
