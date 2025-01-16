@@ -35,27 +35,33 @@ jobs:
         run: npm run build
 
       - name: Setup SSH
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           mkdir -p ~/.ssh
-          ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-          ssh-add - <<< "${{ secrets.DEPLOY_KEY }}"
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+          
+          # Create SSH config
+          cat > ~/.ssh/config << EOF
+          Host *
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Deploy to DigitalOcean
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             root@${{ secrets.DROPLET_IP }}:/var/www/video-processor/
 
-          ssh root@${{ secrets.DROPLET_IP }} << 'EOSSH'
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} << 'EOSSH'
             cd /var/www/video-processor
             npm ci --production
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
@@ -83,4 +89,4 @@ jobs:
           channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
           slack-message: "❌ Failed to deploy video-processor to production"
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}	
