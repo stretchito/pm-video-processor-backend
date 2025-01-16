@@ -41,21 +41,26 @@ jobs:
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ls -la ~/.ssh/deploy_key
+          echo "Content of deploy_key (first line only):"
+          head -n 1 ~/.ssh/deploy_key
           echo "Adding host key..."
           ssh-keyscan -v -H 161.35.137.136 >> ~/.ssh/known_hosts
           echo "SSH directory contents:"
           ls -la ~/.ssh/
+          echo "Known hosts content:"
+          cat ~/.ssh/known_hosts
 
       - name: Test SSH Connection
         run: |
           echo "Testing SSH connection..."
-          ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 'echo "SSH connection successful"'
+          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 'echo "SSH connection successful" && ls -la ~/.ssh && cat ~/.ssh/authorized_keys'
 
       - name: Deploy to DigitalOcean
+        if: success()
         run: |
           echo "Starting rsync..."
           rsync -azv --delete \
-            -e "ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
