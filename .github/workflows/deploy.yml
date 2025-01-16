@@ -34,17 +34,28 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Setup SSH
+      - name: Debug SSH Setup
         run: |
           mkdir -p ~/.ssh
+          echo "Setting up SSH key..."
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
+          ls -la ~/.ssh/deploy_key
+          echo "Adding host key..."
+          ssh-keyscan -v -H 161.35.137.136 >> ~/.ssh/known_hosts
+          echo "SSH directory contents:"
+          ls -la ~/.ssh/
+
+      - name: Test SSH Connection
+        run: |
+          echo "Testing SSH connection..."
+          ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 'echo "SSH connection successful"'
 
       - name: Deploy to DigitalOcean
         run: |
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+          echo "Starting rsync..."
+          rsync -azv --delete \
+            -e "ssh -v -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
