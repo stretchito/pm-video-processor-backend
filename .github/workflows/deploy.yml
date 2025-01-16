@@ -43,19 +43,12 @@ jobs:
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
           
-          # Create SSH config file
+          # Create SSH config file with explicit settings
           echo "Host *" > ~/.ssh/config
           echo "  IdentityFile ~/.ssh/deploy_key" >> ~/.ssh/config
           echo "  StrictHostKeyChecking yes" >> ~/.ssh/config
           echo "  UserKnownHostsFile ~/.ssh/known_hosts" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
-          
-          # Debug: Show SSH files and permissions
-          ls -la ~/.ssh/
-          cat ~/.ssh/config
-          
-          # Test SSH connection with verbose output
-          ssh -vvv nodejs@${{ secrets.DROPLET_IP }} 'echo "SSH test"'
 
       - name: Deploy to DigitalOcean
         run: |
