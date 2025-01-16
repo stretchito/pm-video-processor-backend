@@ -42,19 +42,26 @@ jobs:
           echo "${{ secrets.KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
           
-          # Create SSH config
+          # Create SSH config with explicit settings
           cat > ~/.ssh/config << EOF
           Host *
             IdentityFile ~/.ssh/deploy_key
             StrictHostKeyChecking yes
             UserKnownHostsFile ~/.ssh/known_hosts
+            LogLevel DEBUG3
           EOF
           chmod 600 ~/.ssh/config
+          
+          # Debug: List SSH directory contents and permissions
+          ls -la ~/.ssh/
 
       - name: Deploy to DigitalOcean
         run: |
+          # Test SSH connection first
+          ssh -v -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} 'echo "SSH connection successful"'
+          
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='.env' \
@@ -89,4 +96,4 @@ jobs:
           channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
           slack-message: "❌ Failed to deploy video-processor to production"
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}	
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
