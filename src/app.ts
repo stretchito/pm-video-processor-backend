@@ -36,9 +36,11 @@ app.use('/metrics', metricsRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
-app.listen(port, () => {
+// Listen on all network interfaces
+app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on port ${port}`);
   console.log(`Environment PORT value: ${process.env.PORT}`);
+  console.log(`Server is listening on all interfaces (0.0.0.0:${port})`);
 });
 
 export default app;
