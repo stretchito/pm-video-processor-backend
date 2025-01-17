@@ -34,23 +34,6 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Create PM2 ecosystem file
-        run: |
-          echo 'module.exports = {
-            apps: [{
-              name: "video-processor",
-              script: "app.js",
-              instances: 1,
-              autorestart: true,
-              watch: false,
-              max_memory_restart: "1G",
-              env: {
-                NODE_ENV: "production",
-                PORT: 10000
-              }
-            }]
-          }' > ecosystem.config.js
-
       - name: Debug SSH Setup
         run: |
           mkdir -p ~/.ssh
@@ -78,12 +61,32 @@ jobs:
             ls -la
             echo "Installing production dependencies..."
             npm ci --omit=dev
-            echo "Starting/Reloading PM2..."
-            pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
-            echo "PM2 status:"
+            echo "Checking system resources..."
+            free -h
+            df -h
+            echo "Checking running processes on port 10000..."
+            sudo lsof -i :10000 || echo "No process using port 10000"
+            echo "Checking PM2 status before restart..."
+            pm2 list || echo "PM2 not running any processes"
+            echo "Stopping any existing PM2 processes..."
+            pm2 delete all || echo "No processes to delete"
+            echo "Starting application with PM2..."
+            pm2 start ecosystem.config.js
+            echo "Waiting for application to start..."
+            sleep 10
+            echo "PM2 status after start:"
             pm2 status
+            echo "PM2 logs:"
+            pm2 logs --lines 20
             echo "Checking if application is running:"
-            curl -v http://localhost:10000
+            curl -v http://localhost:10000 || echo "Failed to connect to application"
+            echo "Checking network status:"
+            netstat -tulpn | grep 10000 || echo "Port 10000 not found in netstat"
+            echo "Checking firewall status:"
+            sudo ufw status | grep 10000 || echo "Port 10000 not found in firewall rules"
+            echo "Checking nginx configuration:"
+            sudo nginx -t
+            sudo systemctl status nginx
             sudo systemctl reload nginx
           EOSSH
 
@@ -91,7 +94,6 @@ jobs:
         run: |
           echo "Waiting for application to start..."
           sleep 30
-          echo "Checking application status..."
           for i in {1..5}; do
             echo "Attempt $i of 5..."
             if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
