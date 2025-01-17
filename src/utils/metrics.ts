@@ -1,9 +1,8 @@
-import { Counter, Gauge, Histogram, register } from 'prom-client';
+import { Counter, Gauge, Histogram } from 'prom-client';
+import client from 'prom-client';
 
 // Enable default metrics (CPU, memory, etc.)
-register.setDefaultLabels({
-  app: 'video-processor'
-});
+client.collectDefaultMetrics();
 
 // Video processing metrics
 export const videoProcessingDuration = new Histogram({
