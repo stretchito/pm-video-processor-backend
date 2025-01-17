@@ -3,7 +3,7 @@ import client from 'prom-client';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     res.set('Content-Type', client.register.contentType);
     const metrics = await client.register.metrics();

@@ -18,13 +18,13 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(express.json());
 
-// Health check endpoint for Render
-app.get('/', (req, res) => {
+// Health check endpoint
+app.get('/', (_req, res) => {
   res.status(200).json({ 
     status: 'ok',
     service: 'video-processor-api',
     timestamp: new Date().toISOString(),
-    version: '1.0.1', // Added version number for testing deployment
+    version: '1.0.1',
     environment: process.env.NODE_ENV
   });
 });
@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
 app.use('/api/videos', videoRoutes);
 app.use('/metrics', metricsRoutes);
 
-// Error handling middleware must be used last
+// Error handling middleware
 app.use(errorHandler);
 
 app.listen(port, () => {

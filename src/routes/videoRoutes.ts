@@ -7,7 +7,7 @@ const router = Router();
 // Configure multer for video upload
 const storage = multer.diskStorage({
   destination: 'tmp/uploads/',
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + '.mp4');
   }
