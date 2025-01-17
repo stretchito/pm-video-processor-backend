@@ -33,8 +33,6 @@ export const useVideoProcessor = ({
       });
       formData.append('settings', JSON.stringify(videoSettings));
 
-      console.log('Making request to:', `${API_CONFIG.BASE_URL}/api/videos/process`);
-      
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/videos/process`, {
         method: 'POST',
         body: formData,
