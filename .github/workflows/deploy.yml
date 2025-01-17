@@ -39,7 +39,7 @@ jobs:
           echo 'module.exports = {
             apps: [{
               name: "video-processor",
-              script: "dist/app.js",
+              script: "app.js",
               instances: 1,
               autorestart: true,
               watch: false,
@@ -57,29 +57,17 @@ jobs:
           echo "Setting up SSH key..."
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ls -la ~/.ssh/deploy_key
-          echo "Content of deploy_key (first line only):"
-          head -n 1 ~/.ssh/deploy_key
-          echo "Adding host key..."
-          ssh-keyscan -v -H 161.35.137.136 >> ~/.ssh/known_hosts
-          echo "SSH directory contents:"
-          ls -la ~/.ssh/
-          echo "Known hosts content:"
-          cat ~/.ssh/known_hosts
-
-      - name: Test SSH Connection
-        run: |
-          echo "Testing SSH connection..."
-          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 'echo "SSH connection successful" && ls -la ~/.ssh && cat ~/.ssh/authorized_keys'
+          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
 
       - name: Deploy to DigitalOcean
         if: success()
         run: |
           echo "Starting rsync..."
           rsync -azv --delete \
-            -e "ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
+            --exclude='src' \
             --exclude='.env' \
             dist/ package*.json ecosystem.config.js \
             nodejs@161.35.137.136:/var/www/video-processor/
@@ -88,14 +76,12 @@ jobs:
             cd /var/www/video-processor
             echo "Current directory contents:"
             ls -la
-            echo "Installing dependencies..."
-            npm ci --production
+            echo "Installing production dependencies..."
+            npm ci --omit=dev
             echo "Starting/Reloading PM2..."
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
             echo "PM2 status:"
             pm2 status
-            echo "PM2 logs:"
-            pm2 logs --lines 50
             echo "Checking if application is running:"
             curl -v http://localhost:10000
             sudo systemctl reload nginx
