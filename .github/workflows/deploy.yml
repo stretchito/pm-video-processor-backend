@@ -19,11 +19,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          cache-dependency-path: pm-video-processor-backend/package-lock.json
 
       - name: Install Dependencies
+        working-directory: pm-video-processor-backend
         run: npm ci
 
       - name: Create env file
+        working-directory: pm-video-processor-backend
         run: |
           touch .env
           echo "PORT=10000" >> .env
@@ -32,6 +35,7 @@ jobs:
           echo "NODE_ENV=production" >> .env
         
       - name: Build Application
+        working-directory: pm-video-processor-backend
         run: npm run build
 
       - name: Debug SSH Setup
@@ -52,7 +56,9 @@ jobs:
             --exclude='node_modules' \
             --exclude='src' \
             --exclude='.env' \
-            dist/ package*.json ecosystem.config.js \
+            pm-video-processor-backend/dist/ \
+            pm-video-processor-backend/package*.json \
+            pm-video-processor-backend/ecosystem.config.js \
             nodejs@161.35.137.136:/var/www/video-processor/
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
@@ -80,14 +86,6 @@ jobs:
             pm2 logs --lines 20
             echo "Checking if application is running:"
             curl -v http://localhost:10000 || echo "Failed to connect to application"
-            echo "Checking network status:"
-            netstat -tulpn | grep 10000 || echo "Port 10000 not found in netstat"
-            echo "Checking firewall status:"
-            sudo ufw status | grep 10000 || echo "Port 10000 not found in firewall rules"
-            echo "Checking nginx configuration:"
-            sudo nginx -t
-            sudo systemctl status nginx
-            sudo systemctl reload nginx
           EOSSH
 
       - name: Verify Deployment
