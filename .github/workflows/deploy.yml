@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: 'pm-video-processor-backend/package-lock.json'
+          cache-dependency-path: './pm-video-processor-backend/package-lock.json'
 
       - name: Install Dependencies
         working-directory: pm-video-processor-backend
