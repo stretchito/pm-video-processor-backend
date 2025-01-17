@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { VideoSettings, ProcessedVideo } from "@/types/video";
-import { useToast } from "../../components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { API_CONFIG } from "@/config/api";
 
 interface VideoProcessorProps {
