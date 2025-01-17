@@ -19,11 +19,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: pm-video-processor-backend/package-lock.json
+          cache-dependency-path: './pm-video-processor-backend/package-lock.json'
 
       - name: Install Dependencies
         working-directory: pm-video-processor-backend
-        run: npm ci
+        run: |
+          echo "Current directory: $PWD"
+          echo "Directory contents:"
+          ls -la
+          npm ci
 
       - name: Create env file
         working-directory: pm-video-processor-backend
@@ -36,7 +40,11 @@ jobs:
         
       - name: Build Application
         working-directory: pm-video-processor-backend
-        run: npm run build
+        run: |
+          echo "Building application in directory: $PWD"
+          npm run build
+          echo "Build complete. Contents of dist:"
+          ls -la dist/
 
       - name: Debug SSH Setup
         run: |
@@ -49,16 +57,16 @@ jobs:
       - name: Deploy to DigitalOcean
         if: success()
         run: |
-          echo "Starting rsync..."
+          echo "Starting rsync from directory: $PWD"
           rsync -azv --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='src' \
             --exclude='.env' \
-            pm-video-processor-backend/dist/ \
-            pm-video-processor-backend/package*.json \
-            pm-video-processor-backend/ecosystem.config.js \
+            ./pm-video-processor-backend/dist/ \
+            ./pm-video-processor-backend/package*.json \
+            ./pm-video-processor-backend/ecosystem.config.js \
             nodejs@161.35.137.136:/var/www/video-processor/
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
@@ -67,11 +75,6 @@ jobs:
             ls -la
             echo "Installing production dependencies..."
             npm ci --omit=dev
-            echo "Checking system resources..."
-            free -h
-            df -h
-            echo "Checking running processes on port 10000..."
-            sudo lsof -i :10000 || echo "No process using port 10000"
             echo "Checking PM2 status before restart..."
             pm2 list || echo "PM2 not running any processes"
             echo "Stopping any existing PM2 processes..."
@@ -79,7 +82,7 @@ jobs:
             echo "Starting application with PM2..."
             pm2 start ecosystem.config.js
             echo "Waiting for application to start..."
-            sleep 10
+            sleep 5
             echo "PM2 status after start:"
             pm2 status
             echo "PM2 logs:"
