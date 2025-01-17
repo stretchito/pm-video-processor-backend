@@ -45,7 +45,8 @@ jobs:
               watch: false,
               max_memory_restart: "1G",
               env: {
-                NODE_ENV: "production"
+                NODE_ENV: "production",
+                PORT: 10000
               }
             }]
           }' > ecosystem.config.js
@@ -85,15 +86,37 @@ jobs:
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
             cd /var/www/video-processor
+            echo "Current directory contents:"
+            ls -la
+            echo "Installing dependencies..."
             npm ci --production
+            echo "Starting/Reloading PM2..."
             pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+            echo "PM2 status:"
+            pm2 status
+            echo "PM2 logs:"
+            pm2 logs --lines 50
+            echo "Checking if application is running:"
+            curl -v http://localhost:10000
             sudo systemctl reload nginx
           EOSSH
 
       - name: Verify Deployment
         run: |
-          sleep 10
-          curl --fail --retry 3 --retry-delay 5 http://161.35.137.136:10000 || exit 1
+          echo "Waiting for application to start..."
+          sleep 30
+          echo "Checking application status..."
+          for i in {1..5}; do
+            echo "Attempt $i of 5..."
+            if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
+              echo "Application is responding!"
+              exit 0
+            fi
+            echo "Waiting before next attempt..."
+            sleep 10
+          done
+          echo "Application failed to respond after 5 attempts"
+          exit 1
 
       - name: Notify on Success
         if: success()
