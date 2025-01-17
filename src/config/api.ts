@@ -1,11 +1,9 @@
-interface ImportMetaEnv {
-  VITE_USE_LOCAL_BACKEND?: string;
+interface ApiConfig {
+  BASE_URL: string;
 }
 
-const useLocalBackend = (import.meta.env as ImportMetaEnv).VITE_USE_LOCAL_BACKEND === 'true';
-
-export const API_CONFIG = {
-  BASE_URL: useLocalBackend 
+export const API_CONFIG: ApiConfig = {
+  BASE_URL: import.meta.env.VITE_USE_LOCAL_BACKEND === 'true'
     ? 'http://localhost:10000'
-    : 'https://161.35.137.136:10000'
+    : 'http://161.35.137.136:10000'
 };

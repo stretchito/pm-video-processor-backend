@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { VideoSettings, ProcessedVideo } from "@/types/video";
-import { useToast } from "@/hooks/use-toast";
+import type { VideoSettings, ProcessedVideo } from "@/types/video";
+import { useToast } from "@/hooks/use-toast";  // Updated import path
 import { API_CONFIG } from "@/config/api";
 
 interface VideoProcessorProps {
@@ -33,22 +33,20 @@ export const useVideoProcessor = ({
       });
       formData.append('settings', JSON.stringify(videoSettings));
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/videos/process`, {
+      const apiUrl = new URL('/api/videos/process', API_CONFIG.BASE_URL).toString();
+      console.log('Making request to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as { message?: string; details?: string };
+        const errorData = await response.json();
         throw new Error(errorData.message || errorData.details || 'Failed to process videos');
       }
 
-      const result = await response.json() as {
-        data: {
-          fileName: string;
-          processedVideoPath: string;
-        };
-      };
+      const result = await response.json();
 
       const processed: ProcessedVideo[] = [{
         id: crypto.randomUUID(),
@@ -71,8 +69,6 @@ export const useVideoProcessor = ({
       let errorMessage = 'Failed to process videos';
       if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
       }
       
       toast({
