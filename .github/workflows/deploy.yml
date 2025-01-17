@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: './pm-video-processor-backend/package-lock.json'
+          cache-dependency-path: 'pm-video-processor-backend/package-lock.json'
 
       - name: Install Dependencies
         working-directory: pm-video-processor-backend
@@ -57,6 +57,7 @@ jobs:
       - name: Deploy to DigitalOcean
         if: success()
         run: |
+          cd pm-video-processor-backend
           echo "Starting rsync from directory: $PWD"
           rsync -azv --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
@@ -64,9 +65,9 @@ jobs:
             --exclude='node_modules' \
             --exclude='src' \
             --exclude='.env' \
-            ./pm-video-processor-backend/dist/ \
-            ./pm-video-processor-backend/package*.json \
-            ./pm-video-processor-backend/ecosystem.config.js \
+            dist/ \
+            package.json \
+            ecosystem.config.js \
             nodejs@161.35.137.136:/var/www/video-processor/
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
