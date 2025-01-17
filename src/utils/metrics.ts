@@ -8,6 +8,7 @@ client.collectDefaultMetrics();
 export const videoProcessingDuration = new Histogram({
   name: 'video_processing_duration_seconds',
   help: 'Duration of video processing in seconds',
+  buckets: [10, 30, 60, 120, 300, 600],
   labelNames: ['status']
 });
 
@@ -25,3 +26,9 @@ export const processingErrors = new Counter({
   name: 'video_processing_errors_total',
   help: 'Total number of video processing errors'
 });
+
+// Initialize metrics
+export const initializeMetrics = () => {
+  activeProcessingJobs.set(0);
+  client.register.clear();
+};
