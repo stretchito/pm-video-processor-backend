@@ -1,8 +1,22 @@
 import * as React from "react";
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast";
+
+// Define the types locally instead of importing them
+type ToastProps = {
+  id: string;
+  className?: string;
+  variant?: "default" | "destructive";
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: ToastActionElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+};
+
+type ToastActionElement = React.ReactElement<{
+  className?: string;
+  altText?: string;
+  onClick?: () => void;
+}>;
 
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
