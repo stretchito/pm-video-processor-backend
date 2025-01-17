@@ -132,3 +132,6 @@ dist
 src/.DS_Store
 .DS_Store
 src/.DS_Store
+.ssh/
+.DS_Store
+**/.DS_Store

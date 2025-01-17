@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { VideoSettings as VideoSettingsType, ProcessedVideo } from "@/types/video";
+import { VideoSettings, ProcessedVideo } from "@/types/video";
 import { useToast } from "@/hooks/use-toast";
 import { API_CONFIG } from "@/config/api";
 
 interface VideoProcessorProps {
   videoFiles: File[];
-  videoSettings: Record<string, VideoSettingsType>;
+  videoSettings: Record<string, VideoSettings>;
   selectedVideoFrame?: string;
   onProcessingComplete: (videos: ProcessedVideo[]) => void;
 }
@@ -40,11 +40,17 @@ export const useVideoProcessor = ({
         body: formData,
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.message || result.details || 'Failed to process videos');
+        const errorData = await response.json() as { message?: string; details?: string };
+        throw new Error(errorData.message || errorData.details || 'Failed to process videos');
       }
+
+      const result = await response.json() as {
+        data: {
+          fileName: string;
+          processedVideoPath: string;
+        };
+      };
 
       const processed: ProcessedVideo[] = [{
         id: crypto.randomUUID(),
