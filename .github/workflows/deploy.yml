@@ -18,10 +18,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # Temporarily disable caching to isolate the issue
-          cache: false
-
-      - name: Configure and verify npm cache
+          # Instead of setting cache: false, we'll configure caching separately
+          
+      - name: Configure npm cache
         run: |
           echo "Current directory structure:"
           ls -la ~
