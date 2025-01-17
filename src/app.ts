@@ -12,7 +12,7 @@ dotenv.config();
 initializeMetrics();
 
 const app = express();
-const port = process.env.PORT || 10000;
+const port = Number(process.env.PORT) || 10000;
 
 // Middleware
 app.use(cors());
