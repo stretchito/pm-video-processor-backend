@@ -1,4 +1,4 @@
-import { Counter, Gauge, Histogram, register } from 'prom-client';  // Updated import
+import { Counter, Gauge, Histogram, register } from 'prom-client';
 
 // Enable default metrics (CPU, memory, etc.)
 register.setDefaultLabels({

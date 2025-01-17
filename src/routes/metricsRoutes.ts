@@ -1,5 +1,5 @@
 import express from 'express';
-import { register } from 'prom-client';  // Updated import
+import { register } from 'prom-client';
 
 const router = express.Router();
 
