@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "Starting rsync from directory: $PWD"
           # First, ensure the target directory exists
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor/logs"
           
           # Sync all files including dist directory
           rsync -azv --delete \
@@ -90,6 +90,13 @@ jobs:
             sleep 5
             echo "PM2 status after start:"
             pm2 status
+            if ! pm2 status | grep -q "online"; then
+              echo "Application failed to start. Checking logs..."
+              cat logs/err.log || echo "No error log file found"
+              cat logs/out.log || echo "No output log file found"
+              pm2 logs --lines 50
+              exit 1
+            fi
             echo "PM2 logs:"
             pm2 logs --lines 20
           EOSSH
