@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "lib": ["es2020", "dom"],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -16,7 +16,7 @@
       "@/*": ["src/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "types": ["node", "express"]
+    "types": ["node", "express", "vite/client"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
