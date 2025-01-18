@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "video-processor",
-    script: "/var/www/video-processor/dist/app.js", // Updated full path
+    script: "./dist/app.js",  // Changed to relative path
     instances: 1,
     autorestart: true,
     watch: false,
