@@ -76,6 +76,12 @@ jobs:
             cd /var/www/video-processor
             echo "Current directory contents:"
             ls -la
+            echo "Checking if dist/app.js exists:"
+            ls -la dist/app.js
+            echo "File permissions and location check:"
+            stat dist/app.js
+            echo "File contents check:"
+  	    head -n 5 dist/app.js
             echo "Dist directory contents:"
             ls -la dist
             echo "Installing production dependencies..."
