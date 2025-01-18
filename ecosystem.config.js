@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "video-processor",
-    script: "dist/app.js",
+    script: "/var/www/video-processor/dist/app.js", // Updated full path
     instances: 1,
     autorestart: true,
     watch: false,
@@ -19,4 +19,4 @@ module.exports = {
     log_file: "logs/combined.log",
     time: true
   }]
-}
+};
