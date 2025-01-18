@@ -3,10 +3,11 @@ interface ApiConfig {
 }
 
 const getBaseUrl = () => {
-  if (typeof process !== 'undefined' && process.env.VITE_USE_LOCAL_BACKEND === 'true') {
+  if (import.meta.env.DEV) {
     return 'http://localhost:10000';
   }
-  return 'http://161.35.137.136:10000';
+  // Use environment variable for production URL, fallback to the IP if not set
+  return import.meta.env.VITE_API_URL || 'http://161.35.137.136:10000';
 };
 
 export const API_CONFIG: ApiConfig = {

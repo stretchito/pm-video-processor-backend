@@ -18,27 +18,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          # Instead of setting cache: false, we'll configure caching separately
           
-      - name: Configure npm cache
+      - name: Debug Directory Structure
         run: |
-          echo "Current directory structure:"
-          ls -la ~
-          echo "Creating npm cache directory..."
-          mkdir -p ~/.npm-cache
-          echo "Verifying npm cache directory:"
-          ls -la ~/.npm-cache
-          echo "Setting npm cache location..."
-          npm config set cache ~/.npm-cache
-          echo "Confirming npm cache config:"
-          npm config get cache
-
+          echo "Current working directory: $PWD"
+          echo "Directory contents:"
+          ls -la
+          
       - name: Install Dependencies
-        working-directory: pm-video-processor-backend
         run: |
           echo "Current directory: $PWD"
           echo "Directory contents:"
           ls -la
+          cd pm-video-processor-backend
           npm ci
 
       - name: Create env file
