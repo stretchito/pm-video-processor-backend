@@ -1,5 +1,5 @@
 - name: Deploy to DigitalOcean
-        if: success()
+        
         run: |
           echo "Starting rsync from directory: $PWD"
           # First, ensure the target directory exists
