@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "video-processor",
-    script: "./dist/app.js",  // Changed to relative path
+    script: "dist/app.js",  // Relative to the project root
     instances: 1,
     autorestart: true,
     watch: false,

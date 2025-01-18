@@ -1,79 +1,26 @@
-name: Deploy to DigitalOcean
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  NODE_VERSION: 18
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Debug Directory Structure
-        run: |
-          echo "Current working directory: $PWD"
-          echo "Directory contents:"
-          ls -la
-          
-      - name: Install Dependencies
-        run: |
-          echo "Current directory: $PWD"
-          echo "Directory contents:"
-          ls -la
-          npm ci
-
-      - name: Create env file
-        run: |
-          touch .env
-          echo "PORT=10000" >> .env
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
-          echo "NODE_ENV=production" >> .env
-        
-      - name: Build Application
-        run: |
-          echo "Building application in directory: $PWD"
-          npm run build
-          echo "Build complete. Contents of dist:"
-          ls -la dist/
-
-      - name: Debug SSH Setup
-        run: |
-          mkdir -p ~/.ssh
-          echo "Setting up SSH key..."
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
-
-      - name: Deploy to DigitalOcean
+- name: Deploy to DigitalOcean
         if: success()
         run: |
           echo "Starting rsync from directory: $PWD"
+          # First, ensure the target directory exists
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor"
+          
+          # Sync all files including dist directory
           rsync -azv --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --exclude='.git*' \
             --exclude='node_modules' \
             --exclude='src' \
             --exclude='.env' \
-            dist/ \
-            package.json \
-            ecosystem.config.js \
+            ./ \
             nodejs@161.35.137.136:/var/www/video-processor/
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
             cd /var/www/video-processor
             echo "Current directory contents:"
             ls -la
+            echo "Dist directory contents:"
+            ls -la dist
             echo "Installing production dependencies..."
             npm ci --omit=dev
             echo "Checking PM2 status before restart..."
@@ -81,47 +28,11 @@ jobs:
             echo "Stopping any existing PM2 processes..."
             pm2 delete all || echo "No processes to delete"
             echo "Starting application with PM2..."
-            pm2 start ecosystem.config.js
+            PM2_HOME="/var/www/video-processor/.pm2" pm2 start ecosystem.config.js
             echo "Waiting for application to start..."
             sleep 5
             echo "PM2 status after start:"
             pm2 status
             echo "PM2 logs:"
             pm2 logs --lines 20
-            echo "Checking if application is running:"
-            curl -v http://localhost:10000 || echo "Failed to connect to application"
           EOSSH
-
-      - name: Verify Deployment
-        run: |
-          echo "Waiting for application to start..."
-          sleep 30
-          for i in {1..5}; do
-            echo "Attempt $i of 5..."
-            if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
-              echo "Application is responding!"
-              exit 0
-            fi
-            echo "Waiting before next attempt..."
-            sleep 10
-          done
-          echo "Application failed to respond after 5 attempts"
-          exit 1
-
-      - name: Notify on Success
-        if: success()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "✅ Successfully deployed video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-      - name: Notify on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "❌ Failed to deploy video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
