@@ -30,11 +30,9 @@ jobs:
           echo "Current directory: $PWD"
           echo "Directory contents:"
           ls -la
-          cd pm-video-processor-backend
           npm ci
 
       - name: Create env file
-        working-directory: pm-video-processor-backend
         run: |
           touch .env
           echo "PORT=10000" >> .env
@@ -43,7 +41,6 @@ jobs:
           echo "NODE_ENV=production" >> .env
         
       - name: Build Application
-        working-directory: pm-video-processor-backend
         run: |
           echo "Building application in directory: $PWD"
           npm run build
@@ -61,7 +58,6 @@ jobs:
       - name: Deploy to DigitalOcean
         if: success()
         run: |
-          cd pm-video-processor-backend
           echo "Starting rsync from directory: $PWD"
           rsync -azv --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
