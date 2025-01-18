@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "video-processor",
-    script: "/var/www/html/dist/app.js",
+    script: "/var/www/video-processor/dist/app.js",
     instances: 1,
     autorestart: true,
     watch: false,
@@ -14,9 +14,9 @@ module.exports = {
       NODE_ENV: "production",
       PORT: 10000
     },
-    error_file: "/var/www/html/logs/err.log",
-    out_file: "/var/www/html/logs/out.log",
-    log_file: "/var/www/html/logs/combined.log",
+    error_file: "/var/www/video-processor/logs/err.log",
+    out_file: "/var/www/video-processor/logs/out.log",
+    log_file: "/var/www/video-processor/logs/combined.log",
     time: true
   }]
 };
