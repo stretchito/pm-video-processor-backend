@@ -86,43 +86,41 @@ jobs:
            PATH="$PATH:./node_modules/.bin"
            
            echo "Installing production dependencies..."
-           npm ci --omit=dev --no-scripts
-           echo "Checking application dependencies..."
-           npm list --prod || true
+           # Remove the postinstall script before installing
+           sed -i 's/"postinstall": "npm run build"//' package.json
+           npm ci --omit=dev
            
-           echo "Setting up .pm2 directory..."
+           echo "Setting up directories..."
+           mkdir -p logs
+           chmod 777 logs
            mkdir -p .pm2
            chmod 777 .pm2
            
            echo "Starting application with PM2..."
            export PM2_HOME="/var/www/video-processor/.pm2"
+           
+           echo "PM2 logs directory:"
+           ls -la .pm2 || true
+           
+           echo "Application files:"
+           ls -la dist || true
+           
            ./node_modules/.bin/pm2 delete all || true
-           ./node_modules/.bin/pm2 start ecosystem.config.js
+           
+           echo "Starting with increased logging..."
+           DEBUG=* ./node_modules/.bin/pm2 start ecosystem.config.js --no-daemon --no-autorestart
            
            echo "Waiting for application to start..."
            sleep 5
-           echo "Checking application process..."
-           ps aux | grep app.js
-           echo "PM2 status after start:"
+           
+           echo "Process status:"
+           ps aux | grep node
+           
+           echo "PM2 status:"
            ./node_modules/.bin/pm2 status
            
-           if ! ./node_modules/.bin/pm2 status | grep -q "online"; then
-             echo "Application failed to start. Checking logs..."
-             echo "=== Error Log ===="
-             cat logs/err.log || echo "No error log file found"
-             echo "=== Output Log ==="
-             cat logs/out.log || echo "No output log file found"
-             echo "=== PM2 Logs ===="
-             ./node_modules/.bin/pm2 logs video-processor --lines 50 --raw || true
-             echo "=== Node Process Info ==="
-             ps aux | grep node || true
-             echo "=== Directory Contents ==="
-             ls -la /var/www/video-processor/
-             ls -la /var/www/video-processor/dist/
-             exit 1
-           fi
-           echo "Application log output:"
-           ./node_modules/.bin/pm2 logs --lines 20
+           echo "Looking for error logs..."
+           find . -name "*.log" -type f -exec tail -n 50 {} \;
          EOSSH
 
      - name: Verify Deployment
