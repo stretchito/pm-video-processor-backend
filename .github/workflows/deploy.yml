@@ -46,6 +46,8 @@ jobs:
          npm run build
          echo "Build complete. Contents of dist:"
          ls -la dist/
+         echo "Contents of dist/app.js:"
+         cat dist/app.js || echo "app.js not found!"
 
      - name: Debug SSH Setup
        run: |
@@ -75,37 +77,43 @@ jobs:
            cd /var/www/video-processor
            echo "Current directory contents:"
            ls -la
+           
            echo "Setting up permissions..."
-           sudo chown -R nodejs:nodejs /var/www/video-processor
-           sudo mkdir -p /usr/lib/node_modules/pm2
-           sudo chown -R nodejs:nodejs /usr/lib/node_modules/pm2
+           sudo -n chown -R nodejs:nodejs /var/www/video-processor || true
+           
+           echo "Installing PM2..."
+           npm install pm2@latest || npm install pm2 --save
+           PATH="$PATH:./node_modules/.bin"
+           
            echo "Installing production dependencies..."
            npm ci --omit=dev --no-scripts
            echo "Checking application dependencies..."
            npm list --prod || true
-           echo "Checking PM2 status before restart..."
-           pm2 list || echo "PM2 not running any processes"
-           echo "Upgrading PM2..."
-           sudo npm install pm2@latest -g || npm install pm2@latest -g --user root
-           sudo pm2 update || pm2 update --user root
-           echo "Stopping any existing PM2 processes..."
-           pm2 delete all || echo "No processes to delete"
+           
+           echo "Setting up .pm2 directory..."
+           mkdir -p .pm2
+           chmod 777 .pm2
+           
            echo "Starting application with PM2..."
-           PM2_HOME="/var/www/video-processor/.pm2" pm2 start ecosystem.config.js
+           export PM2_HOME="/var/www/video-processor/.pm2"
+           ./node_modules/.bin/pm2 delete all || true
+           ./node_modules/.bin/pm2 start ecosystem.config.js
+           
            echo "Waiting for application to start..."
            sleep 5
            echo "Checking application process..."
            ps aux | grep app.js
            echo "PM2 status after start:"
-           pm2 status
-           if ! pm2 status | grep -q "online"; then
+           ./node_modules/.bin/pm2 status
+           
+           if ! ./node_modules/.bin/pm2 status | grep -q "online"; then
              echo "Application failed to start. Checking logs..."
              echo "=== Error Log ===="
              cat logs/err.log || echo "No error log file found"
              echo "=== Output Log ==="
              cat logs/out.log || echo "No output log file found"
              echo "=== PM2 Logs ===="
-             pm2 logs video-processor --lines 50 --raw || true
+             ./node_modules/.bin/pm2 logs video-processor --lines 50 --raw || true
              echo "=== Node Process Info ==="
              ps aux | grep node || true
              echo "=== Directory Contents ==="
@@ -114,7 +122,7 @@ jobs:
              exit 1
            fi
            echo "Application log output:"
-           pm2 logs --lines 20
+           ./node_modules/.bin/pm2 logs --lines 20
          EOSSH
 
      - name: Verify Deployment
