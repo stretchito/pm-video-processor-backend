@@ -1,140 +1,152 @@
 name: Deploy to DigitalOcean
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+ push:
+   branches: [ main ]
+ workflow_dispatch:
 
 env:
-  NODE_VERSION: 18
+ NODE_VERSION: 18
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Debug Directory Structure
-        run: |
-          echo "Current working directory: $PWD"
-          echo "Directory contents:"
-          ls -la
-          
-      - name: Install Dependencies
-        run: |
-          echo "Current directory: $PWD"
-          echo "Directory contents:"
-          ls -la
-          npm ci
+ deploy:
+   runs-on: ubuntu-latest
+   steps:
+     - uses: actions/checkout@v4
+     
+     - name: Setup Node.js
+       uses: actions/setup-node@v4
+       with:
+         node-version: ${{ env.NODE_VERSION }}
+         
+     - name: Debug Directory Structure
+       run: |
+         echo "Current working directory: $PWD"
+         echo "Directory contents:"
+         ls -la
+         
+     - name: Install Dependencies
+       run: |
+         echo "Current directory: $PWD"
+         echo "Directory contents:"
+         ls -la
+         npm ci
 
-      - name: Create env file
-        run: |
-          touch .env
-          echo "PORT=10000" >> .env
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
-          echo "NODE_ENV=production" >> .env
-        
-      - name: Build Application
-        run: |
-          echo "Building application in directory: $PWD"
-          npm run build
-          echo "Build complete. Contents of dist:"
-          ls -la dist/
+     - name: Create env file
+       run: |
+         touch .env
+         echo "PORT=10000" >> .env
+         echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+         echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+         echo "NODE_ENV=production" >> .env
+       
+     - name: Build Application
+       run: |
+         echo "Building application in directory: $PWD"
+         npm run build
+         echo "Build complete. Contents of dist:"
+         ls -la dist/
 
-      - name: Debug SSH Setup
-        run: |
-          mkdir -p ~/.ssh
-          echo "Setting up SSH key..."
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
+     - name: Debug SSH Setup
+       run: |
+         mkdir -p ~/.ssh
+         echo "Setting up SSH key..."
+         echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+         chmod 600 ~/.ssh/deploy_key
+         ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
 
-      - name: Deploy to DigitalOcean
-        run: |
-          echo "Starting rsync from directory: $PWD"
-          # First, ensure the target directory exists
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor/logs"
-          
-          # Sync all files including dist directory
-          rsync -azv --delete \
-            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            --exclude='.git*' \
-            --exclude='node_modules' \
-            --exclude='src' \
-            --exclude='.env' \
-            ./ \
-            nodejs@161.35.137.136:/var/www/video-processor/
+     - name: Deploy to DigitalOcean
+       run: |
+         echo "Starting rsync from directory: $PWD"
+         # First, ensure the target directory exists
+         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor/logs"
+         
+         # Sync all files including dist directory
+         rsync -azv --delete \
+           -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+           --exclude='.git*' \
+           --exclude='node_modules' \
+           --exclude='src' \
+           --exclude='.env' \
+           ./ \
+           nodejs@161.35.137.136:/var/www/video-processor/
 
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
-            cd /var/www/video-processor
-            echo "Current directory contents:"
-            ls -la
-            echo "Installing production dependencies..."
-            npm ci --omit=dev --no-scripts
-            echo "Checking PM2 status before restart..."
-            pm2 list || echo "PM2 not running any processes"
- 
-            echo "Upgrading PM2..."
-            npm install pm2@latest -g
-            pm2 update            
+         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
+           cd /var/www/video-processor
+           echo "Current directory contents:"
+           ls -la
+           echo "Setting up permissions..."
+           sudo chown -R nodejs:nodejs /var/www/video-processor
+           sudo mkdir -p /usr/lib/node_modules/pm2
+           sudo chown -R nodejs:nodejs /usr/lib/node_modules/pm2
+           echo "Installing production dependencies..."
+           npm ci --omit=dev --no-scripts
+           echo "Checking application dependencies..."
+           npm list --prod || true
+           echo "Checking PM2 status before restart..."
+           pm2 list || echo "PM2 not running any processes"
+           echo "Upgrading PM2..."
+           sudo npm install pm2@latest -g || npm install pm2@latest -g --user root
+           sudo pm2 update || pm2 update --user root
+           echo "Stopping any existing PM2 processes..."
+           pm2 delete all || echo "No processes to delete"
+           echo "Starting application with PM2..."
+           PM2_HOME="/var/www/video-processor/.pm2" pm2 start ecosystem.config.js
+           echo "Waiting for application to start..."
+           sleep 5
+           echo "Checking application process..."
+           ps aux | grep app.js
+           echo "PM2 status after start:"
+           pm2 status
+           if ! pm2 status | grep -q "online"; then
+             echo "Application failed to start. Checking logs..."
+             echo "=== Error Log ===="
+             cat logs/err.log || echo "No error log file found"
+             echo "=== Output Log ==="
+             cat logs/out.log || echo "No output log file found"
+             echo "=== PM2 Logs ===="
+             pm2 logs video-processor --lines 50 --raw || true
+             echo "=== Node Process Info ==="
+             ps aux | grep node || true
+             echo "=== Directory Contents ==="
+             ls -la /var/www/video-processor/
+             ls -la /var/www/video-processor/dist/
+             exit 1
+           fi
+           echo "Application log output:"
+           pm2 logs --lines 20
+         EOSSH
 
-            echo "Stopping any existing PM2 processes..."
-            pm2 delete all || echo "No processes to delete"
-            echo "Starting application with PM2..."
-            PM2_HOME="/var/www/video-processor/.pm2" pm2 start ecosystem.config.js
-            echo "Waiting for application to start..."
-            sleep 5
-            echo "PM2 status after start:"
-            pm2 status
-            if ! pm2 status | grep -q "online"; then
-              echo "Application failed to start. Checking logs..."
-              echo "=== Error Log ===="
-              cat logs/err.log || echo "No error log file found"
-              echo "=== Output Log ==="
-              cat logs/out.log || echo "No output log file found"
-              echo "=== PM2 Logs ===="
-              pm2 logs --lines 50
-              exit 1
-            fi
-            pm2 logs --lines 20
-          EOSSH
+     - name: Verify Deployment
+       run: |
+         echo "Waiting for application to start..."
+         sleep 30
+         for i in {1..5}; do
+           echo "Attempt $i of 5..."
+           if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
+             echo "Application is responding!"
+             exit 0
+           fi
+           echo "Waiting before next attempt..."
+           sleep 10
+         done
+         echo "Application failed to respond after 5 attempts"
+         exit 1
 
-      - name: Verify Deployment
-        run: |
-          echo "Waiting for application to start..."
-          sleep 30
-          for i in {1..5}; do
-            echo "Attempt $i of 5..."
-            if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
-              echo "Application is responding!"
-              exit 0
-            fi
-            echo "Waiting before next attempt..."
-            sleep 10
-          done
-          echo "Application failed to respond after 5 attempts"
-          exit 1
+     - name: Notify on Success
+       if: success()
+       uses: slackapi/slack-github-action@v1.24.0
+       with:
+         channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+         slack-message: "✅ Successfully deployed video-processor to production"
+       env:
+         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-      - name: Notify on Success
-        if: success()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "✅ Successfully deployed video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-      - name: Notify on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "❌ Failed to deploy video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+     - name: Notify on Failure
+       if: failure()
+       uses: slackapi/slack-github-action@v1.24.0
+       with:
+         channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+         slack-message: "❌ Failed to deploy video-processor to production"
+       env:
+         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
