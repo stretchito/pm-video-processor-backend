@@ -79,6 +79,11 @@ jobs:
             npm ci --omit=dev --no-scripts
             echo "Checking PM2 status before restart..."
             pm2 list || echo "PM2 not running any processes"
+ 
+            echo "Upgrading PM2..."
+            npm install pm2@latest -g
+            pm2 update            
+
             echo "Stopping any existing PM2 processes..."
             pm2 delete all || echo "No processes to delete"
             echo "Starting application with PM2..."
