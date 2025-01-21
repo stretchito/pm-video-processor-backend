@@ -81,6 +81,10 @@ jobs:
            echo "Setting up permissions..."
            sudo -n chown -R nodejs:nodejs /var/www/video-processor || true
            
+           echo "Configuring firewall..."
+           sudo -n ufw allow 10000/tcp || true
+           sudo -n ufw status | grep 10000 || true
+           
            echo "Installing PM2..."
            npm install pm2@latest || npm install pm2 --save
            PATH="$PATH:./node_modules/.bin"
@@ -108,16 +112,21 @@ jobs:
            ./node_modules/.bin/pm2 delete all || true
            
            echo "Starting with increased logging..."
-           DEBUG=* ./node_modules/.bin/pm2 start ecosystem.config.js --no-daemon --no-autorestart
+           export DEBUG=express:*,app:*
+           export NODE_DEBUG=*
+           ./node_modules/.bin/pm2 start ecosystem.config.js --no-daemon --no-autorestart | tee startup.log
            
-           echo "Waiting for application to start..."
-           sleep 5
+           echo "Application startup log:"
+           cat startup.log || true
            
            echo "Process status:"
            ps aux | grep node
            
            echo "PM2 status:"
            ./node_modules/.bin/pm2 status
+           
+           echo "Checking netstat for port 10000:"
+           netstat -tulpn | grep 10000 || true
            
            echo "Looking for error logs..."
            find . -name "*.log" -type f -exec tail -n 50 {} \;
@@ -155,4 +164,4 @@ jobs:
          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
          slack-message: "❌ Failed to deploy video-processor to production"
        env:
-         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }} 
