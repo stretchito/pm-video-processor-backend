@@ -1,13 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 
 export class AppError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public status: string = 'error'
-  ) {
+  public status: number;
+  public isOperational: boolean;
+
+  constructor(message: string, status: number = 500) {
     super(message);
-    Object.setPrototypeOf(this, AppError.prototype);
+    this.status = status;
+    this.isOperational = true;
+
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 
@@ -18,21 +20,18 @@ export const errorHandler = (
   next: NextFunction
 ): void => {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message
+    res.status(err.status).json({
+      status: 'error',
+      message: err.message,
+      ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
     });
     return;
   }
 
-  // Handle default error
+  // Handle unexpected errors
+  console.error('Unexpected error:', err);
   res.status(500).json({
     status: 'error',
     message: 'Internal server error'
   });
-};
-
-// Type guard
-export const isAppError = (error: any): error is AppError => {
-  return error instanceof AppError;
 };

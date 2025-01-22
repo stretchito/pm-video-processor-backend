@@ -1,36 +1,34 @@
-import { AppError } from '../../middleware/errorHandler';
+import { Request, Response, NextFunction } from 'express';
+import { VideoProcessor } from '../components/video-processing/VideoProcessor';
+import { AppError } from '../middleware/errorHandler';
 
-export interface ProcessingOptions {
-  inputPath: string;
-  outputPath: string;
-  quality?: number;
-}
+export class VideoController {
+  private videoProcessor: VideoProcessor;
 
-export class VideoProcessor {
   constructor() {
-    // Initialize any required dependencies
+    this.videoProcessor = new VideoProcessor();
   }
 
-  private validateInput(options: ProcessingOptions): void {
-    if (!options.inputPath) {
-      throw new AppError(400, 'Input path is required');
-    }
-    if (!options.outputPath) {
-      throw new AppError(400, 'Output path is required');
-    }
-  }
-
-  async process(options: ProcessingOptions): Promise<void> {
+  async processVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      this.validateInput(options);
-      
-      // Your video processing logic here
-      
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
+      const { inputPath, outputPath, quality } = req.body;
+
+      if (!inputPath || !outputPath) {
+        throw new AppError('Input and output paths are required', 400);
       }
-      throw new AppError(500, 'Video processing failed');
+
+      await this.videoProcessor.process({
+        inputPath,
+        outputPath,
+        quality: quality || 100
+      });
+
+      res.status(200).json({
+        status: 'success',
+        message: 'Video processed successfully'
+      });
+    } catch (error) {
+      next(error);
     }
   }
 }
