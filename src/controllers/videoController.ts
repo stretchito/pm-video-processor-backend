@@ -5,11 +5,12 @@ import { AppError } from '../middleware/errorHandler';
 export class VideoController {
   private videoProcessor: VideoProcessor;
 
-  constructor() {
-    this.videoProcessor = new VideoProcessor();
+  constructor(videoProcessor?: VideoProcessor) {
+    // Allow dependency injection for testing, or create new instance
+    this.videoProcessor = videoProcessor || new VideoProcessor();
   }
 
-  async processVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
+  public async processVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { inputPath, outputPath, quality } = req.body;
 
