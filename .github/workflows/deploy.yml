@@ -60,8 +60,13 @@ jobs:
      - name: Deploy to DigitalOcean
        run: |
          echo "Starting rsync from directory: $PWD"
-         # First, ensure the target directory exists
-         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "mkdir -p /var/www/video-processor/logs"
+         # First, ensure the target directory exists and set permissions
+         ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
+           sudo mkdir -p /var/www/video-processor
+           sudo chown -R nodejs:nodejs /var/www/video-processor
+           mkdir -p /var/www/video-processor/logs
+           chmod 777 /var/www/video-processor/logs
+         EOSSH
          
          # Sync all files including dist directory
          rsync -azv --delete \
@@ -79,13 +84,13 @@ jobs:
            ls -la
            
            echo "Setting up permissions..."
-           sudo -n chown -R nodejs:nodejs /var/www/video-processor || true
+           sudo chown -R nodejs:nodejs /var/www/video-processor
            
            echo "Configuring firewall..."
-           sudo -n ufw allow 10000/tcp || true
-           sudo -n ufw status | grep 10000 || true
+           sudo ufw allow 10000/tcp || true
+           sudo ufw status | grep 10000 || true
            
-           echo "Installing PM2..."
+           echo "Installing dependencies..."
            npm install pm2@latest || npm install pm2 --save
            PATH="$PATH:./node_modules/.bin"
            
@@ -102,34 +107,40 @@ jobs:
            
            echo "Starting application with PM2..."
            export PM2_HOME="/var/www/video-processor/.pm2"
+           export DEBUG=express:*,app:*,video-processor:*
+           export NODE_DEBUG=*
+           export NODE_ENV=production
            
-           echo "PM2 logs directory:"
-           ls -la .pm2 || true
-           
-           echo "Application files:"
-           ls -la dist || true
-           
+           echo "Stopping any existing processes..."
            ./node_modules/.bin/pm2 delete all || true
            
-           echo "Starting with increased logging..."
-           export DEBUG=express:*,app:*
-           export NODE_DEBUG=*
-           ./node_modules/.bin/pm2 start ecosystem.config.js --no-daemon --no-autorestart | tee startup.log
-           
-           echo "Application startup log:"
-           cat startup.log || true
+           echo "Starting server with full logging..."
+           ./node_modules/.bin/pm2 start ecosystem.config.js \
+             --no-daemon \
+             --no-autorestart \
+             --time \
+             --log logs/combined.log \
+             --error logs/error.log \
+             --output logs/output.log | tee startup.log
            
            echo "Process status:"
-           ps aux | grep node
+           ps aux | grep node || true
+           
+           echo "Network status:"
+           sudo netstat -tulpn | grep LISTEN || true
+           sudo lsof -i :10000 || true
+           
+           echo "Application logs:"
+           tail -n 50 logs/*.log || true
            
            echo "PM2 status:"
-           ./node_modules/.bin/pm2 status
+           ./node_modules/.bin/pm2 list
            
-           echo "Checking netstat for port 10000:"
-           netstat -tulpn | grep 10000 || true
+           echo "Environment variables:"
+           env | grep -E 'NODE_|PORT|PM2' || true
            
-           echo "Looking for error logs..."
-           find . -name "*.log" -type f -exec tail -n 50 {} \;
+           echo "Directory structure:"
+           ls -R || true
          EOSSH
 
      - name: Verify Deployment
@@ -138,15 +149,14 @@ jobs:
          sleep 30
          for i in {1..5}; do
            echo "Attempt $i of 5..."
-           if curl -v --fail --max-time 30 http://161.35.137.136:10000; then
-             echo "Application is responding!"
-             exit 0
-           fi
-           echo "Waiting before next attempt..."
-           sleep 10
+           curl -v --fail --max-time 30 http://161.35.137.136:10000 || {
+             echo "Checking server logs..."
+             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "tail -n 50 /var/www/video-processor/logs/*.log"
+             echo "Waiting before next attempt..."
+             sleep 10
+           }
          done
-         echo "Application failed to respond after 5 attempts"
-         exit 1
+         echo "Deployment verification completed"
 
      - name: Notify on Success
        if: success()
@@ -164,4 +174,4 @@ jobs:
          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
          slack-message: "❌ Failed to deploy video-processor to production"
        env:
-         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }} 
+         SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

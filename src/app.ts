@@ -37,10 +37,25 @@ app.use('/metrics', metricsRoutes);
 app.use(errorHandler);
 
 // Listen on all network interfaces
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on port ${port}`);
   console.log(`Environment PORT value: ${process.env.PORT}`);
   console.log(`Server is listening on all interfaces (0.0.0.0:${port})`);
+}).on('error', (error: Error) => {
+  console.error('Failed to start server:', error);
+  console.error('Port:', port);
+  console.error('Environment:', process.env.NODE_ENV);
+  console.error('Full error:', JSON.stringify(error, null, 2));
+  process.exit(1);
+});
+
+// Handle process termination
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM. Performing graceful shutdown...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
 
 export default app;
