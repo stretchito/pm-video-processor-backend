@@ -1,36 +1,36 @@
-import { ErrorHandler } from '../../middleware/errorHandler';
+import { AppError } from '../../middleware/errorHandler';
 
-export class VideoProcessingError extends Error {
-  constructor(message: string, public details?: any) {
-    super(message);
-    this.name = 'VideoProcessingError';
-  }
+export interface ProcessingOptions {
+  inputPath: string;
+  outputPath: string;
+  quality?: number;
 }
 
 export class VideoProcessor {
-  private async handleProcessingError(error: any): Promise<void> {
-    console.error('Video processing error:', {
-      message: error.message,
-      stack: error.stack,
-      details: error.details,
-      timestamp: new Date().toISOString()
-    });
-
-    // Add any cleanup logic here
-    // For example, deleting temporary files
-    
-    throw new VideoProcessingError(
-      'Failed to process video',
-      { originalError: error.message }
-    );
+  constructor() {
+    // Initialize any required dependencies
   }
 
-  // Wrap your existing video processing methods with this error handler
-  async process(/* your existing parameters */): Promise<void> {
+  private validateInput(options: ProcessingOptions): void {
+    if (!options.inputPath) {
+      throw new AppError(400, 'Input path is required');
+    }
+    if (!options.outputPath) {
+      throw new AppError(400, 'Output path is required');
+    }
+  }
+
+  async process(options: ProcessingOptions): Promise<void> {
     try {
-      // Your existing video processing logic
+      this.validateInput(options);
+      
+      // Your video processing logic here
+      
     } catch (error) {
-      await this.handleProcessingError(error);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(500, 'Video processing failed');
     }
   }
 }

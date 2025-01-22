@@ -1,25 +1,11 @@
 import { Router } from 'express';
-import multer from 'multer';
-import { processVideoHandler } from '../controllers/videoController';
+import { VideoController } from '../controllers/videoController';
 
 const router = Router();
+const videoController = new VideoController();
 
-// Configure multer for video upload
-const storage = multer.diskStorage({
-  destination: 'tmp/uploads/',
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.mp4');
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 25 * 1024 * 1024, // 25MB limit
-  }
-});
-
-router.post('/process', upload.single('video'), processVideoHandler);
+router.post('/process', (req, res, next) => 
+  videoController.processVideo(req, res, next)
+);
 
 export default router;

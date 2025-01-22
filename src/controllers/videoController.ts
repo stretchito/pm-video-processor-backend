@@ -1,38 +1,36 @@
-import { Request, Response, NextFunction } from 'express';
-import { processVideo } from '../utils/ffmpeg';
-import { AppError } from '../middleware/errorHandler';
-import path from 'path';
+import { AppError } from '../../middleware/errorHandler';
 
-export const processVideoHandler = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    if (!req.file) {
-      throw new AppError('No video file uploaded', 400);
-    }
+export interface ProcessingOptions {
+  inputPath: string;
+  outputPath: string;
+  quality?: number;
+}
 
-    const inputPath = req.file.path;
-    const outputPath = path.join('tmp/processed', `processed-${Date.now()}.mp4`);
-    
-    const { logoPath, logoPosition, effects } = req.body;
-
-    const processedVideoPath = await processVideo({
-      inputPath,
-      outputPath,
-      logoPath,
-      logoPosition: logoPosition ? JSON.parse(logoPosition) : undefined,
-      effects: effects ? JSON.parse(effects) : undefined,
-    });
-
-    res.json({
-      status: 'success',
-      data: {
-        processedVideoPath,
-      },
-    });
-  } catch (error) {
-    next(error);
+export class VideoProcessor {
+  constructor() {
+    // Initialize any required dependencies
   }
-};
+
+  private validateInput(options: ProcessingOptions): void {
+    if (!options.inputPath) {
+      throw new AppError(400, 'Input path is required');
+    }
+    if (!options.outputPath) {
+      throw new AppError(400, 'Output path is required');
+    }
+  }
+
+  async process(options: ProcessingOptions): Promise<void> {
+    try {
+      this.validateInput(options);
+      
+      // Your video processing logic here
+      
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(500, 'Video processing failed');
+    }
+  }
+}
