@@ -1,88 +1,36 @@
-import { useState } from "react";
-import type { VideoSettings, ProcessedVideo } from "@/types/video";
-import { useToast } from "@/hooks/use-toast";
-import { API_CONFIG } from "@/config/api";
+import { ErrorHandler } from '../../middleware/errorHandler';
 
-interface VideoProcessorProps {
-  videoFiles: File[];
-  videoSettings: Record<string, VideoSettings>;
-  selectedVideoFrame?: string;
-  onProcessingComplete: (videos: ProcessedVideo[]) => void;
+export class VideoProcessingError extends Error {
+  constructor(message: string, public details?: any) {
+    super(message);
+    this.name = 'VideoProcessingError';
+  }
 }
 
-export const useVideoProcessor = ({
-  videoFiles,
-  videoSettings,
-  selectedVideoFrame,
-  onProcessingComplete,
-}: VideoProcessorProps) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const { toast } = useToast();
+export class VideoProcessor {
+  private async handleProcessingError(error: any): Promise<void> {
+    console.error('Video processing error:', {
+      message: error.message,
+      stack: error.stack,
+      details: error.details,
+      timestamp: new Date().toISOString()
+    });
 
-  const processVideos = async () => {
+    // Add any cleanup logic here
+    // For example, deleting temporary files
+    
+    throw new VideoProcessingError(
+      'Failed to process video',
+      { originalError: error.message }
+    );
+  }
+
+  // Wrap your existing video processing methods with this error handler
+  async process(/* your existing parameters */): Promise<void> {
     try {
-      setIsProcessing(true);
-
-      if (videoFiles.length === 0) {
-        throw new Error('Please upload at least one video file');
-      }
-
-      const formData = new FormData();
-      videoFiles.forEach((file) => {
-        formData.append('video', file);
-      });
-      formData.append('settings', JSON.stringify(videoSettings));
-
-      const apiUrl = new URL('/api/videos/process', API_CONFIG.BASE_URL).toString();
-      console.log('Making request to:', apiUrl);
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.details || 'Failed to process videos');
-      }
-
-      const result = await response.json();
-
-      const processed: ProcessedVideo[] = [{
-        id: crypto.randomUUID(),
-        name: result.data.fileName || 'Processed Video',
-        thumbnail: selectedVideoFrame || '',
-        url: result.data.processedVideoPath,
-        selected: false,
-      }];
-
-      onProcessingComplete(processed);
-
-      toast({
-        title: "Success",
-        description: "Video processed successfully",
-      });
-
+      // Your existing video processing logic
     } catch (error) {
-      console.error('Error processing videos:', error);
-      
-      let errorMessage = 'Failed to process videos';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
+      await this.handleProcessingError(error);
     }
-  };
-
-  return {
-    isProcessing,
-    processVideos,
-  };
-};
+  }
+}

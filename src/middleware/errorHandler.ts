@@ -1,82 +1,43 @@
-import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import winston from 'winston';
+import { Request, Response, NextFunction } from 'express';
 
-// Configure winston logger
-const logger = winston.createLogger({
-  level: 'error',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    })
-  ]
-});
-
-export class AppError extends Error {
-  statusCode: number;
-  
-  constructor(message: string, statusCode: number) {
-    super(message);
-    this.statusCode = statusCode;
-    Error.captureStackTrace(this, this.constructor);
-  }
+interface ErrorWithStatus extends Error {
+  status?: number;
+  statusCode?: number;
 }
 
-export const errorHandler: ErrorRequestHandler = (
-  err: Error | AppError,
-  _req: Request,
+export const errorHandler = (
+  err: ErrorWithStatus,
+  req: Request,
   res: Response,
-  _next: NextFunction
+  next: NextFunction
 ) => {
-  // Log the full error details
-  logger.error('Error details:', {
-    error: err,
-    stack: err.stack
+  console.error('Error occurred:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 
-  if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+  // Determine status code
+  const statusCode = err.status || err.statusCode || 500;
+
+  // Handle different types of errors
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({
       status: 'error',
-      message: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      message: 'Invalid request body',
+      error: err.message
     });
-    return;
   }
 
-  // Handle FFmpeg specific errors
-  if (err.message && err.message.includes('FFmpeg')) {
-    const errorMessage = err.message.includes('SIGKILL') 
-      ? 'Video processing failed due to memory limits. Please try with a smaller video file or contact support.'
-      : 'Video processing failed. Please try with a different video file.';
-    
-    res.status(500).json({
-      status: 'error',
-      message: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-    return;
-  }
-
-  // Handle multer errors
-  if (err.name === 'MulterError') {
-    res.status(400).json({
-      status: 'error',
-      message: 'File upload error',
-      details: err.message
-    });
-    return;
-  }
-
-  res.status(500).json({
+  // Default error response
+  res.status(statusCode).json({
     status: 'error',
-    message: 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV !== 'production' ? { stack: err.stack } : {}),
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method
   });
 };
