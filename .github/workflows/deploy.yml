@@ -119,12 +119,6 @@ jobs:
               --error logs/error.log \
               --output logs/output.log
             
-            echo "Checking startup logs..."
-            for f in logs/*.log; do
-              echo "=== Contents of $f ==="
-              cat "$f" || echo "No content in $f yet"
-            done
-            
             echo "Process status:"
             ps aux | grep node
             sudo lsof -i :10000 || true
@@ -136,7 +130,7 @@ jobs:
             pm2 save
           EOSSH
 
- - name: Verify Deployment
+      - name: Verify Deployment
         run: |
           echo "Waiting for application to start..."
           sleep 15  # Increased wait time
