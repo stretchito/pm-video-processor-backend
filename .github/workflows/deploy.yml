@@ -22,8 +22,11 @@ jobs:
       - name: Install Dependencies
         run: |
           echo "Installing dependencies in: $PWD"
-          npm ci
-          
+          # Remove package-lock.json if it exists
+          rm -f package-lock.json
+          # Install dependencies and generate new package-lock.json
+          npm install
+        
       - name: Create env file
         run: |
           touch .env
@@ -86,8 +89,8 @@ jobs:
             npm --version
             
             echo "Installing production dependencies..."
-            sed -i 's/"postinstall": "npm run build"//' package.json || true
-            npm ci --omit=dev
+            rm -f package-lock.json
+            npm install --production
             
             echo "Setting up PM2..."
             # Install PM2 globally with sudo
