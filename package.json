@@ -2,6 +2,7 @@
   "name": "pm-video-processor-backend",
   "version": "1.0.0",
   "description": "Backend service for PM Batch Video Processor",
+  "type": "module",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
