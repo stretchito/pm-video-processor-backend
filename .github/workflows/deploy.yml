@@ -1,59 +1,8 @@
-name: Deploy to DigitalOcean
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  NODE_VERSION: 18
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          
-      - name: Install Dependencies
-        run: |
-          echo "Installing dependencies in: $PWD"
-          # Remove package-lock.json if it exists
-          rm -f package-lock.json
-          # Install dependencies and generate new package-lock.json
-          npm install
-        
-      - name: Create env file
-        run: |
-          touch .env
-          echo "PORT=10000" >> .env
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
-          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
-          echo "NODE_ENV=production" >> .env
-        
-      - name: Build Application
-        run: |
-          echo "Building application in: $PWD"
-          npm run build
-          echo "Build complete. Contents of dist:"
-          ls -la dist/
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "Setting up SSH key..."
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
-
-      - name: Deploy to DigitalOcean
+- name: Deploy to DigitalOcean
         run: |
           # First, ensure the target directory exists
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
+            echo "Creating directories and setting permissions..."
             sudo mkdir -p /var/www/video-processor
             sudo chown -R nodejs:nodejs /var/www/video-processor
             mkdir -p /var/www/video-processor/logs
@@ -64,8 +13,13 @@ jobs:
             touch /var/www/video-processor/logs/error.log
             touch /var/www/video-processor/logs/output.log
             chmod 666 /var/www/video-processor/logs/*.log
+            
+            echo "Current directory structure:"
+            ls -la /var/www/video-processor/
+            ls -la /var/www/video-processor/logs/
           EOSSH
           
+          echo "Syncing files..."
           # Sync files
           rsync -azv --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
@@ -89,18 +43,17 @@ jobs:
             npm --version
             
             echo "Installing production dependencies..."
-            rm -f package-lock.json
-            npm install --production
+            npm ci --omit=dev
             
             echo "Setting up PM2..."
-            # Install PM2 globally with sudo
-            sudo npm install pm2@latest -g || sudo npm install pm2 -g
+            sudo npm install pm2@latest -g
             
-            echo "Verifying PM2 installation..."
-            which pm2
-            pm2 --version
-            
-            echo "Verifying dist directory..."
+            echo "Verifying files..."
+            echo "Package.json:"
+            cat package.json
+            echo "Ecosystem config:"
+            cat ecosystem.config.js
+            echo "Dist directory:"
             ls -la dist/
             
             echo "Setting up directories and permissions..."
@@ -108,71 +61,42 @@ jobs:
             chmod 777 logs .pm2
             sudo chown -R nodejs:nodejs .
             
-            echo "Configuring firewall..."
-            sudo ufw allow 10000/tcp || true
-            
             echo "Starting application with PM2..."
             export PM2_HOME="/var/www/video-processor/.pm2"
             
             # Stop existing processes
             pm2 delete all || true
             
+            echo "PM2 processes before start:"
+            pm2 list
+            
             # Start with full logging
+            echo "Starting PM2..."
             pm2 start ecosystem.config.js \
               --time \
               --log logs/combined.log \
               --error logs/error.log \
-              --output logs/output.log
+              --output logs/output.log || {
+                echo "PM2 start failed. Checking logs:"
+                cat logs/*.log
+                exit 1
+              }
             
-            echo "Checking startup logs..."
-            sleep 2
-            cat logs/*.log || echo "No logs available yet"
+            echo "PM2 processes after start:"
+            pm2 list
             
             echo "Process status:"
             ps aux | grep node
+            
+            echo "Port status:"
             sudo lsof -i :10000 || true
             
-            echo "PM2 process list:"
-            pm2 list
+            echo "Log contents:"
+            for f in logs/*.log; do
+              echo "=== $f ==="
+              cat "$f" || echo "No content in $f"
+            done
             
             echo "Saving PM2 process list..."
-            pm2 save
+            pm2 save || true
           EOSSH
-
-      - name: Verify Deployment
-        run: |
-          echo "Waiting for application to start..."
-          sleep 15  # Increased wait time
-          for i in {1..5}; do
-            echo "Attempt $i of 5..."
-            if curl -s -f -m 10 http://161.35.137.136:10000/; then
-              echo "Successfully connected to application"
-              exit 0
-            else
-              echo "Connection failed. Checking logs..."
-              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "cd /var/www/video-processor && ls -la logs/ && cat logs/*.log 2>/dev/null || echo 'No logs available'"
-              if [ $i -lt 5 ]; then
-                echo "Waiting before next attempt..."
-                sleep 10
-              fi
-            fi
-          done
-          exit 1
-
-      - name: Notify on Success
-        if: success()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "✅ Successfully deployed video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-      - name: Notify on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: "❌ Failed to deploy video-processor to production"
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
