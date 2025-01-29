@@ -90,7 +90,12 @@ jobs:
             npm ci --omit=dev
             
             echo "Setting up PM2..."
-            npm install pm2@latest -g
+            # Install PM2 globally with sudo
+            sudo npm install pm2@latest -g || sudo npm install pm2 -g
+            
+            echo "Verifying PM2 installation..."
+            which pm2
+            pm2 --version
             
             echo "Verifying dist directory..."
             ls -la dist/
@@ -99,9 +104,6 @@ jobs:
             mkdir -p logs .pm2
             chmod 777 logs .pm2
             sudo chown -R nodejs:nodejs .
-            
-            echo "Verifying log files exist..."
-            ls -la logs/
             
             echo "Configuring firewall..."
             sudo ufw allow 10000/tcp || true
@@ -118,6 +120,10 @@ jobs:
               --log logs/combined.log \
               --error logs/error.log \
               --output logs/output.log
+            
+            echo "Checking startup logs..."
+            sleep 2
+            cat logs/*.log || echo "No logs available yet"
             
             echo "Process status:"
             ps aux | grep node
