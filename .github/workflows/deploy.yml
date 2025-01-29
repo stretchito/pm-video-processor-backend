@@ -136,7 +136,7 @@ jobs:
             pm2 save
           EOSSH
 
-      - name: Verify Deployment
+ - name: Verify Deployment
         run: |
           echo "Waiting for application to start..."
           sleep 15  # Increased wait time
@@ -144,22 +144,17 @@ jobs:
             echo "Attempt $i of 5..."
             if curl -s -f -m 10 http://161.35.137.136:10000/; then
               echo "Successfully connected to application"
-              break
+              exit 0
             else
               echo "Connection failed. Checking logs..."
-              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
-                cd /var/www/video-processor
-                for f in logs/*.log; do
-                  echo "=== Contents of $f ==="
-                  cat "$f" || echo "No content in $f yet"
-                done
-              EOSSH
+              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "cd /var/www/video-processor && ls -la logs/ && cat logs/*.log 2>/dev/null || echo 'No logs available'"
               if [ $i -lt 5 ]; then
                 echo "Waiting before next attempt..."
                 sleep 10
               fi
             fi
           done
+          exit 1
 
       - name: Notify on Success
         if: success()
