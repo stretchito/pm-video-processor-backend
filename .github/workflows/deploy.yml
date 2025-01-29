@@ -55,6 +55,12 @@ jobs:
             sudo chown -R nodejs:nodejs /var/www/video-processor
             mkdir -p /var/www/video-processor/logs
             chmod 777 /var/www/video-processor/logs
+            
+            # Create empty log files if they don't exist
+            touch /var/www/video-processor/logs/combined.log
+            touch /var/www/video-processor/logs/error.log
+            touch /var/www/video-processor/logs/output.log
+            chmod 666 /var/www/video-processor/logs/*.log
           EOSSH
           
           # Sync files
@@ -94,6 +100,9 @@ jobs:
             chmod 777 logs .pm2
             sudo chown -R nodejs:nodejs .
             
+            echo "Verifying log files exist..."
+            ls -la logs/
+            
             echo "Configuring firewall..."
             sudo ufw allow 10000/tcp || true
             
@@ -111,7 +120,10 @@ jobs:
               --output logs/output.log
             
             echo "Checking startup logs..."
-            tail -n 50 logs/*.log || true
+            for f in logs/*.log; do
+              echo "=== Contents of $f ==="
+              cat "$f" || echo "No content in $f yet"
+            done
             
             echo "Process status:"
             ps aux | grep node
@@ -127,7 +139,7 @@ jobs:
       - name: Verify Deployment
         run: |
           echo "Waiting for application to start..."
-          sleep 10
+          sleep 15  # Increased wait time
           for i in {1..5}; do
             echo "Attempt $i of 5..."
             if curl -s -f -m 10 http://161.35.137.136:10000/; then
@@ -135,7 +147,13 @@ jobs:
               break
             else
               echo "Connection failed. Checking logs..."
-              ssh -i ~/.ssh/deploy_key nodejs@161.35.137.136 "tail -n 50 /var/www/video-processor/logs/*.log"
+              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
+                cd /var/www/video-processor
+                for f in logs/*.log; do
+                  echo "=== Contents of $f ==="
+                  cat "$f" || echo "No content in $f yet"
+                done
+              EOSSH
               if [ $i -lt 5 ]; then
                 echo "Waiting before next attempt..."
                 sleep 10
