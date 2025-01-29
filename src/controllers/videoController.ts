@@ -2,15 +2,18 @@ import { Request, Response, NextFunction } from 'express';
 import { VideoProcessor } from '../components/video-processing/VideoProcessor';
 import { AppError } from '../middleware/errorHandler';
 
-interface VideoProcessorOptions {
-  quality?: number;
-}
-
 export class VideoController {
   private videoProcessor: VideoProcessor;
 
-  constructor(options: VideoProcessorOptions = {}) {
-    this.videoProcessor = new VideoProcessor();
+  constructor() {
+    this.videoProcessor = new VideoProcessor({
+      onError: (error: Error) => {
+        console.error('Video processing error:', error);
+      },
+      onComplete: () => {
+        console.log('Video processing completed');
+      }
+    });
   }
 
   public async processVideo(req: Request, res: Response, next: NextFunction): Promise<void> {

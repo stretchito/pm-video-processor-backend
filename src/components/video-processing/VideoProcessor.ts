@@ -1,4 +1,3 @@
-import React from 'react';
 import { AppError } from '../../middleware/errorHandler';
 
 export interface ProcessingOptions {
@@ -7,14 +6,19 @@ export interface ProcessingOptions {
   quality?: number;
 }
 
-interface VideoProcessorProps {
-  options?: ProcessingOptions;
+export interface ProcessingCallbacks {
   onProgress?: (progress: number) => void;
   onError?: (error: Error) => void;
   onComplete?: () => void;
 }
 
-export class VideoProcessor extends React.Component<VideoProcessorProps> {
+export class VideoProcessor {
+  private callbacks: ProcessingCallbacks;
+
+  constructor(callbacks: ProcessingCallbacks = {}) {
+    this.callbacks = callbacks;
+  }
+
   private validateQuality(quality: number): void {
     if (quality < 0 || quality > 100) {
       throw new AppError(`Invalid quality value: ${quality}. Must be between 0 and 100`, 400);
@@ -48,12 +52,12 @@ export class VideoProcessor extends React.Component<VideoProcessorProps> {
       // Add your video processing implementation here
       
       // Notify completion if callback provided
-      this.props.onComplete?.();
+      this.callbacks.onComplete?.();
 
     } catch (error) {
       // Notify error if callback provided
-      if (this.props.onError) {
-        this.props.onError(error instanceof Error ? error : new Error('Unknown error'));
+      if (this.callbacks.onError) {
+        this.callbacks.onError(error instanceof Error ? error : new Error('Unknown error'));
       }
       
       if (error instanceof AppError) {
@@ -68,10 +72,5 @@ export class VideoProcessor extends React.Component<VideoProcessorProps> {
 
   async cleanup(): Promise<void> {
     // Add cleanup logic here if needed
-  }
-
-  render(): React.ReactNode {
-    // Since this is primarily a processing utility, we don't render anything
-    return null;
   }
 }
