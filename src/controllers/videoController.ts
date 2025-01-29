@@ -2,12 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import { VideoProcessor } from '../components/video-processing/VideoProcessor';
 import { AppError } from '../middleware/errorHandler';
 
+interface VideoProcessorOptions {
+  quality?: number;
+}
+
 export class VideoController {
   private videoProcessor: VideoProcessor;
 
-  constructor(videoProcessor?: VideoProcessor) {
-    // Allow dependency injection for testing, or create new instance
-    this.videoProcessor = videoProcessor || new VideoProcessor();
+  constructor(options: VideoProcessorOptions = {}) {
+    this.videoProcessor = new VideoProcessor();
   }
 
   public async processVideo(req: Request, res: Response, next: NextFunction): Promise<void> {
