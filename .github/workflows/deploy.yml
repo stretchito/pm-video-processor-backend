@@ -104,7 +104,7 @@ jobs:
             echo "Package.json:"
             cat package.json
             echo "Ecosystem config:"
-            cat ecosystem.config.js
+            cat ecosystem.config.cjs
             echo "Dist directory:"
             ls -la dist/
             
@@ -124,7 +124,7 @@ jobs:
             
             # Start with full logging
             echo "Starting PM2..."
-            pm2 start ecosystem.config.js \
+            pm2 start ecosystem.config.cjs \
               --time \
               --log logs/combined.log \
               --error logs/error.log \

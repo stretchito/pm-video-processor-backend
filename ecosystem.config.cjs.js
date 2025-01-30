@@ -17,9 +17,6 @@ module.exports = {
     out_file: 'logs/output.log',
     log_file: 'logs/combined.log',
     time: true,
-    log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-    // Add ESM support
-    interpreter: 'node',
-    interpreter_args: '--require ts-node/register --experimental-modules'
+    log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
   }]
 };
