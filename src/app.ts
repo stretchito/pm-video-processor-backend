@@ -1,10 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import videoRoutes from './routes/videoRoutes';
-import metricsRoutes from './routes/metricsRoutes';
-import { errorHandler } from './middleware/errorHandler';
-import { initializeMetrics } from './utils/metrics';
+import videoRoutes from './routes/videoRoutes.js';
+import metricsRoutes from './routes/metricsRoutes.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import { initializeMetrics } from './utils/metrics.js';
 
 dotenv.config();
 
