@@ -22,6 +22,9 @@ jobs:
       - name: Install Dependencies
         run: |
           echo "Installing dependencies in: $PWD"
+          # First try standard install to generate/update lock file
+          npm install
+          # Then clean install with the updated lock file
           npm ci
           
       - name: Create env file
@@ -92,7 +95,7 @@ jobs:
             npm --version
             
             echo "Installing production dependencies..."
-            npm ci --omit=dev
+            npm install --omit=dev
             
             echo "Setting up PM2..."
             sudo npm install pm2@latest -g
