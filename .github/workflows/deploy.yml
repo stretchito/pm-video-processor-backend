@@ -1,4 +1,53 @@
-- name: Deploy to DigitalOcean
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 18
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Dependencies
+        run: |
+          echo "Installing dependencies in: $PWD"
+          npm ci
+          
+      - name: Create env file
+        run: |
+          touch .env
+          echo "PORT=10000" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+          echo "NODE_ENV=production" >> .env
+        
+      - name: Build Application
+        run: |
+          echo "Building application in: $PWD"
+          npm run build
+          echo "Build complete. Contents of dist:"
+          ls -la dist/
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "Setting up SSH key..."
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 161.35.137.136 >> ~/.ssh/known_hosts
+
+      - name: Deploy to DigitalOcean
         run: |
           # First, ensure the target directory exists
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 << 'EOSSH'
@@ -100,3 +149,41 @@
             echo "Saving PM2 process list..."
             pm2 save || true
           EOSSH
+
+      - name: Verify Deployment
+        run: |
+          echo "Waiting for application to start..."
+          sleep 15  # Increased wait time
+          for i in {1..5}; do
+            echo "Attempt $i of 5..."
+            if curl -s -f -m 10 http://161.35.137.136:10000/; then
+              echo "Successfully connected to application"
+              exit 0
+            else
+              echo "Connection failed. Checking logs..."
+              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no nodejs@161.35.137.136 "cd /var/www/video-processor && ls -la logs/ && cat logs/*.log 2>/dev/null || echo 'No logs available'"
+              if [ $i -lt 5 ]; then
+                echo "Waiting before next attempt..."
+                sleep 10
+              fi
+            fi
+          done
+          exit 1
+
+      - name: Notify on Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack-message: "✅ Successfully deployed video-processor to production"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+
+      - name: Notify on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack-message: "❌ Failed to deploy video-processor to production"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
