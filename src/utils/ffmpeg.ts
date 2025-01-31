@@ -1,5 +1,18 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import winston from 'winston';
+
+// Configure winston logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console()
+  ]
+});
 
 // Set ffmpeg path
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
@@ -31,27 +44,52 @@ export const processVideo = async (options: VideoProcessingOptions): Promise<str
     effects,
   } = options;
 
-  return new Promise((resolve, reject) => {
-    let command = ffmpeg(inputPath);
+  logger.info('Starting video processing with options:', {
+    inputPath,
+    outputPath,
+    logoPosition,
+    effects
+  });
 
-    // Apply effects if specified
+  return new Promise((resolve, reject) => {
+    let command = ffmpeg(inputPath)
+      .outputOptions([
+        '-max_muxing_queue_size 1024',
+        '-y',
+        '-preset ultrafast',
+        '-movflags +faststart',
+        '-maxrate 1M',
+        '-bufsize 2M',
+        '-threads 1',
+        '-vf scale=w=min(1280\\,iw):h=min(720\\,ih):force_original_aspect_ratio=decrease',
+        '-crf 28',
+      ]);
+
     if (effects) {
       const filters: string[] = [];
       
       if (effects.brightness !== undefined) {
-        filters.push(`brightness=${effects.brightness}`);
+        const normalizedBrightness = effects.brightness / 100;
+        logger.info('Applying brightness effect:', normalizedBrightness);
+        filters.push(`eq=brightness=${normalizedBrightness}`);
       }
       
       if (effects.contrast !== undefined) {
-        filters.push(`contrast=${effects.contrast}`);
+        const normalizedContrast = effects.contrast / 100;
+        logger.info('Applying contrast effect:', normalizedContrast);
+        filters.push(`eq=contrast=${normalizedContrast}`);
       }
       
       if (effects.saturation !== undefined) {
-        filters.push(`saturation=${effects.saturation}`);
+        const normalizedSaturation = effects.saturation / 100;
+        logger.info('Applying saturation effect:', normalizedSaturation);
+        filters.push(`eq=saturation=${normalizedSaturation}`);
       }
       
-      if (effects.zoom !== undefined) {
-        filters.push(`scale=iw*${effects.zoom}:ih*${effects.zoom}`);
+      if (effects.zoom !== undefined && effects.zoom !== 100) {
+        const scale = effects.zoom / 100;
+        logger.info('Applying zoom effect:', scale);
+        filters.push(`scale=iw*${scale}:ih*${scale}`);
       }
 
       if (filters.length > 0) {
@@ -59,8 +97,8 @@ export const processVideo = async (options: VideoProcessingOptions): Promise<str
       }
     }
 
-    // Add logo if specified
     if (logoPath && logoPosition) {
+      logger.info('Adding logo with position:', logoPosition);
       command = command.input(logoPath)
         .complexFilter([
           `overlay=${logoPosition.x}:${logoPosition.y}`
@@ -68,10 +106,24 @@ export const processVideo = async (options: VideoProcessingOptions): Promise<str
     }
 
     command
+      .on('start', (commandLine) => {
+        logger.info('FFmpeg processing started:', commandLine);
+      })
+      .on('progress', (progress) => {
+        logger.info('Processing progress:', progress);
+      })
       .on('end', () => {
+        logger.info('FFmpeg processing completed');
         resolve(outputPath);
       })
       .on('error', (err) => {
+        logger.error('FFmpeg error:', {
+          error: err,
+          message: err.message,
+          stack: err.stack,
+          inputPath,
+          outputPath
+        });
         reject(new Error(`FFmpeg error: ${err.message}`));
       })
       .save(outputPath);

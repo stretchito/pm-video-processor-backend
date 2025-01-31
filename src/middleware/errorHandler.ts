@@ -1,37 +1,82 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import winston from 'winston';
+
+// Configure winston logger
+const logger = winston.createLogger({
+  level: 'error',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 export class AppError extends Error {
-  public status: number;
-  public isOperational: boolean;
-
-  constructor(message: string, status: number = 500) {
+  statusCode: number;
+  
+  constructor(message: string, statusCode: number) {
     super(message);
-    this.status = status;
-    this.isOperational = true;
-
+    this.statusCode = statusCode;
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
-export const errorHandler = (
+export const errorHandler: ErrorRequestHandler = (
   err: Error | AppError,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction
-): void => {
+  _next: NextFunction
+) => {
+  // Log the full error details
+  logger.error('Error details:', {
+    error: err,
+    stack: err.stack
+  });
+
   if (err instanceof AppError) {
-    res.status(err.status).json({
+    res.status(err.statusCode).json({
       status: 'error',
       message: err.message,
-      ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {})
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
     return;
   }
 
-  // Handle unexpected errors
-  console.error('Unexpected error:', err);
+  // Handle FFmpeg specific errors
+  if (err.message && err.message.includes('FFmpeg')) {
+    const errorMessage = err.message.includes('SIGKILL') 
+      ? 'Video processing failed due to memory limits. Please try with a smaller video file or contact support.'
+      : 'Video processing failed. Please try with a different video file.';
+    
+    res.status(500).json({
+      status: 'error',
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+    return;
+  }
+
+  // Handle multer errors
+  if (err.name === 'MulterError') {
+    res.status(400).json({
+      status: 'error',
+      message: 'File upload error',
+      details: err.message
+    });
+    return;
+  }
+
   res.status(500).json({
     status: 'error',
-    message: 'Internal server error'
+    message: 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 };

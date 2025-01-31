@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { processVideo } from '../utils/ffmpeg';
-import { VideoProcessingRequest, ProcessingOptions } from './video/types';
-import { logger } from './video/logger';
-import { uploadToSupabase } from './video/storage';
-import { cleanupFiles } from './video/cleanup';
-import { validateVideoRequest } from './video/validation';
+import { VideoProcessingRequest, ProcessingOptions } from '../controllers/video/types';
+import { logger } from '../controllers/video/logger';
+import { uploadToSupabase } from '../controllers/video/storage';
+import { cleanupFiles } from '../controllers/video/cleanup';
+import { validateVideoRequest } from '../controllers/video/validation';
 import { 
   videoProcessingDuration,
-  processingErrors as videoProcessingErrors,
+  videoProcessingErrors,
   activeProcessingJobs,
   storageUsage
 } from '../utils/metrics';
